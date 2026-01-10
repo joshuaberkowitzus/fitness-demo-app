@@ -1,0 +1,1223 @@
+openapi: 3.1.0
+info:
+  title: Fitness Tracker API
+  description: |
+    Backend API for the Fitness Tracker application.
+    Provides endpoints for workout management, session logging, and Google Fit integration.
+  version: 1.0.0
+  contact:
+    name: Fitness Tracker Team
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://fitness-tracker-api.web.app
+    description: Production (Firebase)
+
+tags:
+  - name: auth
+    description: Authentication verification endpoints
+  - name: workouts
+    description: Workout plan and day management
+  - name: sessions
+    description: Workout session logging
+  - name: health
+    description: Google Fit integration
+  - name: users
+    description: User profile and preferences
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ============================================================================
+  # AUTH ENDPOINTS
+  # ============================================================================
+  /api/v1/auth/verify:
+    get:
+      tags: [auth]
+      summary: Verify authentication token
+      description: Validates Firebase ID token and returns user info
+      operationId: verifyToken
+      responses:
+        '200':
+          description: Token is valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthVerifyResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============================================================================
+  # USER ENDPOINTS
+  # ============================================================================
+  /api/v1/users/me:
+    get:
+      tags: [users]
+      summary: Get current user profile
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: User not found (first login, needs initialization)
+
+    put:
+      tags: [users]
+      summary: Update user profile
+      operationId: updateCurrentUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/users/me/initialize:
+    post:
+      tags: [users]
+      summary: Initialize new user with default workout plan
+      description: Called on first login to seed user data
+      operationId: initializeUser
+      responses:
+        '201':
+          description: User initialized with default plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: User already initialized
+
+  # ============================================================================
+  # WORKOUT PLAN ENDPOINTS
+  # ============================================================================
+  /api/v1/workouts/plan:
+    get:
+      tags: [workouts]
+      summary: Get active workout plan
+      operationId: getActivePlan
+      responses:
+        '200':
+          description: Active workout plan with all days
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutPlanFull'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No active plan found
+
+    put:
+      tags: [workouts]
+      summary: Update workout plan metadata
+      operationId: updatePlan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkoutPlanUpdate'
+      responses:
+        '200':
+          description: Updated plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutPlan'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/workouts/plan/reset:
+    post:
+      tags: [workouts]
+      summary: Reset plan to default
+      description: Replaces current plan with the default knee-preservation program
+      operationId: resetPlanToDefault
+      responses:
+        '200':
+          description: Plan reset to default
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutPlanFull'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/workouts/today:
+    get:
+      tags: [workouts]
+      summary: Get today's workout
+      description: Returns the workout for the current day of the week
+      operationId: getTodayWorkout
+      responses:
+        '200':
+          description: Today's workout with exercises
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutDayFull'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No workout defined for today
+
+  /api/v1/workouts/days/{dayId}:
+    get:
+      tags: [workouts]
+      summary: Get specific workout day
+      operationId: getWorkoutDay
+      parameters:
+        - name: dayId
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [sunday, monday, tuesday, wednesday, thursday, friday, saturday]
+      responses:
+        '200':
+          description: Workout day with exercises
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutDayFull'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Workout day not found
+
+    put:
+      tags: [workouts]
+      summary: Update workout day
+      operationId: updateWorkoutDay
+      parameters:
+        - name: dayId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkoutDayUpdate'
+      responses:
+        '200':
+          description: Updated workout day
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutDay'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/workouts/days/{dayId}/exercises:
+    get:
+      tags: [workouts]
+      summary: List exercises for a workout day
+      operationId: listExercises
+      parameters:
+        - name: dayId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of exercises
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Exercise'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [workouts]
+      summary: Add exercise to workout day
+      operationId: addExercise
+      parameters:
+        - name: dayId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExerciseCreate'
+      responses:
+        '201':
+          description: Created exercise
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exercise'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/workouts/days/{dayId}/exercises/{exerciseId}:
+    put:
+      tags: [workouts]
+      summary: Update exercise
+      operationId: updateExercise
+      parameters:
+        - name: dayId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: exerciseId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExerciseUpdate'
+      responses:
+        '200':
+          description: Updated exercise
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exercise'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Exercise not found
+
+    delete:
+      tags: [workouts]
+      summary: Remove exercise from workout day
+      operationId: deleteExercise
+      parameters:
+        - name: dayId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: exerciseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Exercise deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Exercise not found
+
+  # ============================================================================
+  # SESSION ENDPOINTS
+  # ============================================================================
+  /api/v1/sessions:
+    get:
+      tags: [sessions]
+      summary: List workout sessions (history)
+      operationId: listSessions
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [in_progress, completed, cancelled]
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [sessions]
+      summary: Start a new workout session
+      operationId: startSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionCreate'
+      responses:
+        '201':
+          description: Session started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutSession'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Session already in progress
+
+  /api/v1/sessions/current:
+    get:
+      tags: [sessions]
+      summary: Get current in-progress session
+      operationId: getCurrentSession
+      responses:
+        '200':
+          description: Current session with completions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutSessionFull'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No session in progress
+
+  /api/v1/sessions/{sessionId}:
+    get:
+      tags: [sessions]
+      summary: Get session details
+      operationId: getSession
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session details with completions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutSessionFull'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Session not found
+
+    patch:
+      tags: [sessions]
+      summary: Update session (add notes, complete, cancel)
+      operationId: updateSession
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionUpdate'
+      responses:
+        '200':
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutSession'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Session not found
+
+  /api/v1/sessions/{sessionId}/exercises/{exerciseId}/complete:
+    post:
+      tags: [sessions]
+      summary: Mark exercise as complete
+      operationId: completeExercise
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: exerciseId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExerciseCompletionCreate'
+      responses:
+        '201':
+          description: Exercise marked complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExerciseCompletion'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Session or exercise not found
+        '409':
+          description: Exercise already completed
+
+  /api/v1/sessions/{sessionId}/exercises/{exerciseId}/undo:
+    post:
+      tags: [sessions]
+      summary: Undo exercise completion
+      operationId: undoExerciseCompletion
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: exerciseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Completion undone
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Completion not found
+
+  /api/v1/sessions/{sessionId}/sync:
+    post:
+      tags: [sessions]
+      summary: Sync offline session data
+      description: Accepts batched completions from offline mode
+      operationId: syncSession
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionSyncRequest'
+      responses:
+        '200':
+          description: Sync successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionSyncResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============================================================================
+  # STATS ENDPOINTS
+  # ============================================================================
+  /api/v1/stats/summary:
+    get:
+      tags: [users]
+      summary: Get user stats summary
+      operationId: getStatsSummary
+      responses:
+        '200':
+          description: Stats summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/stats/weekly:
+    get:
+      tags: [users]
+      summary: Get weekly workout summary
+      operationId: getWeeklySummary
+      parameters:
+        - name: weekOffset
+          in: query
+          description: 0 = current week, -1 = last week, etc.
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Weekly summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklySummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============================================================================
+  # GOOGLE FIT ENDPOINTS
+  # ============================================================================
+  /api/v1/health/google-fit/authorize:
+    get:
+      tags: [health]
+      summary: Get Google Fit authorization URL
+      operationId: getGoogleFitAuthUrl
+      responses:
+        '200':
+          description: Authorization URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authUrl:
+                    type: string
+                    format: uri
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/health/google-fit/callback:
+    post:
+      tags: [health]
+      summary: Handle Google Fit OAuth callback
+      operationId: googleFitCallback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  description: Authorization code from Google
+      responses:
+        '200':
+          description: Google Fit connected successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connected:
+                    type: boolean
+                  scopes:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '400':
+          description: Invalid authorization code
+
+  /api/v1/health/google-fit/disconnect:
+    post:
+      tags: [health]
+      summary: Disconnect Google Fit
+      operationId: disconnectGoogleFit
+      responses:
+        '204':
+          description: Google Fit disconnected
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/health/google-fit/sync:
+    post:
+      tags: [health]
+      summary: Sync health metrics for a session
+      operationId: syncHealthMetrics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId]
+              properties:
+                sessionId:
+                  type: string
+      responses:
+        '200':
+          description: Health metrics synced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthMetrics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Session not found
+        '503':
+          description: Google Fit not connected or unavailable
+
+  # ============================================================================
+  # WARMUP ENDPOINTS
+  # ============================================================================
+  /api/v1/warmup:
+    get:
+      tags: [workouts]
+      summary: Get warm-up routine
+      operationId: getWarmupRoutine
+      responses:
+        '200':
+          description: Warm-up routine
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarmupRoutine'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Firebase ID token
+
+  responses:
+    Unauthorized:
+      description: Invalid or missing authentication token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    # --------------------------------------------------------------------------
+    # AUTH SCHEMAS
+    # --------------------------------------------------------------------------
+    AuthVerifyResponse:
+      type: object
+      properties:
+        uid:
+          type: string
+        email:
+          type: string
+        emailVerified:
+          type: boolean
+
+    # --------------------------------------------------------------------------
+    # USER SCHEMAS
+    # --------------------------------------------------------------------------
+    User:
+      type: object
+      required: [uid, email, createdAt, preferences, stats]
+      properties:
+        uid:
+          type: string
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        preferences:
+          $ref: '#/components/schemas/UserPreferences'
+        googleFit:
+          $ref: '#/components/schemas/GoogleFitStatus'
+        stats:
+          $ref: '#/components/schemas/UserStats'
+
+    UserUpdate:
+      type: object
+      properties:
+        displayName:
+          type: string
+        preferences:
+          $ref: '#/components/schemas/UserPreferences'
+
+    UserPreferences:
+      type: object
+      properties:
+        showWarmup:
+          type: boolean
+          default: true
+        darkMode:
+          type: boolean
+          default: true
+        weekStartsOn:
+          type: integer
+          enum: [0, 1]
+          default: 1
+
+    UserStats:
+      type: object
+      properties:
+        totalWorkouts:
+          type: integer
+        currentStreak:
+          type: integer
+        longestStreak:
+          type: integer
+        lastWorkoutAt:
+          type: string
+          format: date-time
+
+    GoogleFitStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        lastSyncAt:
+          type: string
+          format: date-time
+
+    # --------------------------------------------------------------------------
+    # WORKOUT PLAN SCHEMAS
+    # --------------------------------------------------------------------------
+    WorkoutPlan:
+      type: object
+      required: [id, name, isActive]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        isActive:
+          type: boolean
+        isDefault:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    WorkoutPlanFull:
+      allOf:
+        - $ref: '#/components/schemas/WorkoutPlan'
+        - type: object
+          properties:
+            days:
+              type: array
+              items:
+                $ref: '#/components/schemas/WorkoutDayFull'
+
+    WorkoutPlanUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    # --------------------------------------------------------------------------
+    # WORKOUT DAY SCHEMAS
+    # --------------------------------------------------------------------------
+    WorkoutDay:
+      type: object
+      required: [id, dayOfWeek, name, isRestDay]
+      properties:
+        id:
+          type: string
+        dayOfWeek:
+          type: integer
+          minimum: 0
+          maximum: 6
+        name:
+          type: string
+        focus:
+          type: string
+        format:
+          type: string
+        duration:
+          type: integer
+          description: Estimated duration in minutes
+        isRestDay:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    WorkoutDayFull:
+      allOf:
+        - $ref: '#/components/schemas/WorkoutDay'
+        - type: object
+          properties:
+            exercises:
+              type: array
+              items:
+                $ref: '#/components/schemas/Exercise'
+
+    WorkoutDayUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        focus:
+          type: string
+        format:
+          type: string
+        duration:
+          type: integer
+        isRestDay:
+          type: boolean
+
+    # --------------------------------------------------------------------------
+    # EXERCISE SCHEMAS
+    # --------------------------------------------------------------------------
+    Exercise:
+      type: object
+      required: [id, name, instructions, sortOrder]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        instructions:
+          type: string
+        sets:
+          type: integer
+        reps:
+          oneOf:
+            - type: integer
+            - type: string
+        tempo:
+          type: string
+        notes:
+          type: string
+        sortOrder:
+          type: integer
+        category:
+          type: string
+
+    ExerciseCreate:
+      type: object
+      required: [name, instructions]
+      properties:
+        name:
+          type: string
+        instructions:
+          type: string
+        sets:
+          type: integer
+        reps:
+          oneOf:
+            - type: integer
+            - type: string
+        tempo:
+          type: string
+        notes:
+          type: string
+        category:
+          type: string
+
+    ExerciseUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        instructions:
+          type: string
+        sets:
+          type: integer
+        reps:
+          oneOf:
+            - type: integer
+            - type: string
+        tempo:
+          type: string
+        notes:
+          type: string
+        sortOrder:
+          type: integer
+        category:
+          type: string
+
+    # --------------------------------------------------------------------------
+    # SESSION SCHEMAS
+    # --------------------------------------------------------------------------
+    WorkoutSession:
+      type: object
+      required: [id, date, workoutDayId, workoutDayName, startedAt, status]
+      properties:
+        id:
+          type: string
+        date:
+          type: string
+          format: date
+        workoutPlanId:
+          type: string
+        workoutDayId:
+          type: string
+        workoutDayName:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [in_progress, completed, cancelled]
+        warmupCompleted:
+          type: boolean
+        notes:
+          type: string
+        healthMetrics:
+          $ref: '#/components/schemas/HealthMetrics'
+
+    WorkoutSessionFull:
+      allOf:
+        - $ref: '#/components/schemas/WorkoutSession'
+        - type: object
+          properties:
+            exerciseCompletions:
+              type: array
+              items:
+                $ref: '#/components/schemas/ExerciseCompletion'
+
+    SessionCreate:
+      type: object
+      required: [workoutDayId]
+      properties:
+        workoutDayId:
+          type: string
+        warmupCompleted:
+          type: boolean
+          default: false
+
+    SessionUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [completed, cancelled]
+        warmupCompleted:
+          type: boolean
+        notes:
+          type: string
+
+    SessionList:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkoutSession'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    SessionSyncRequest:
+      type: object
+      required: [completions]
+      properties:
+        completions:
+          type: array
+          items:
+            type: object
+            required: [exerciseId, completedAt]
+            properties:
+              exerciseId:
+                type: string
+              completedAt:
+                type: string
+                format: date-time
+              skipped:
+                type: boolean
+
+    SessionSyncResponse:
+      type: object
+      properties:
+        synced:
+          type: integer
+        failed:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+
+    # --------------------------------------------------------------------------
+    # EXERCISE COMPLETION SCHEMAS
+    # --------------------------------------------------------------------------
+    ExerciseCompletion:
+      type: object
+      required: [id, exerciseName, completedAt, skipped]
+      properties:
+        id:
+          type: string
+        exerciseName:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
+        setsCompleted:
+          type: integer
+        repsCompleted:
+          type: integer
+        weight:
+          type: number
+        notes:
+          type: string
+        skipped:
+          type: boolean
+        skipReason:
+          type: string
+
+    ExerciseCompletionCreate:
+      type: object
+      properties:
+        setsCompleted:
+          type: integer
+        repsCompleted:
+          type: integer
+        notes:
+          type: string
+        skipped:
+          type: boolean
+          default: false
+        skipReason:
+          type: string
+
+    # --------------------------------------------------------------------------
+    # HEALTH METRICS SCHEMAS
+    # --------------------------------------------------------------------------
+    HealthMetrics:
+      type: object
+      properties:
+        heartRateAvg:
+          type: integer
+        heartRateMax:
+          type: integer
+        caloriesBurned:
+          type: integer
+        steps:
+          type: integer
+
+    # --------------------------------------------------------------------------
+    # STATS SCHEMAS
+    # --------------------------------------------------------------------------
+    StatsSummary:
+      type: object
+      properties:
+        totalWorkouts:
+          type: integer
+        currentStreak:
+          type: integer
+        longestStreak:
+          type: integer
+        lastWorkoutAt:
+          type: string
+          format: date-time
+        thisWeekWorkouts:
+          type: integer
+        thisMonthWorkouts:
+          type: integer
+
+    WeeklySummary:
+      type: object
+      properties:
+        weekStart:
+          type: string
+          format: date
+        weekEnd:
+          type: string
+          format: date
+        workoutsCompleted:
+          type: integer
+        daysWorkedOut:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+        totalDuration:
+          type: integer
+          description: Total workout duration in minutes
+
+    # --------------------------------------------------------------------------
+    # WARMUP SCHEMAS
+    # --------------------------------------------------------------------------
+    WarmupRoutine:
+      type: object
+      required: [id, name, movements]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        duration:
+          type: integer
+        movements:
+          type: array
+          items:
+            $ref: '#/components/schemas/WarmupMovement'
+
+    WarmupMovement:
+      type: object
+      required: [name, instructions, duration, purpose]
+      properties:
+        name:
+          type: string
+        instructions:
+          type: string
+        duration:
+          type: string
+        purpose:
+          type: string
+        sortOrder:
+          type: integer
+
+    # --------------------------------------------------------------------------
+    # ERROR SCHEMAS
+    # --------------------------------------------------------------------------
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object

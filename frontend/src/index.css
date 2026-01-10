@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+/* Fitness Theme Custom Styles */
+@theme {
+  /* Colors - Fitness themed palette */
+  --color-fitness-primary: #10B981;
+  --color-fitness-primary-dark: #059669;
+  --color-fitness-secondary: #6366F1;
+  --color-fitness-warning: #F59E0B;
+  --color-fitness-danger: #EF4444;
+  --color-fitness-success: #22C55E;
+  
+  /* Dark mode backgrounds */
+  --color-background-dark: #0F172A;
+  --color-background-card: #1E293B;
+  --color-background-hover: #334155;
+  
+  /* Text colors */
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: #94A3B8;
+  --color-text-muted: #64748B;
+}
+
+/* Base styles */
+body {
+  @apply bg-background-dark text-text-primary min-h-screen antialiased;
+  margin: 0;
+}
+
+/* Custom component classes */
+.btn-primary {
+  @apply bg-fitness-primary hover:bg-fitness-primary-dark text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200;
+}
+
+.btn-secondary {
+  @apply bg-background-card hover:bg-background-hover text-text-primary border border-gray-700 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+}
+
+.card {
+  @apply bg-background-card rounded-xl p-4 shadow-lg border border-gray-800;
+}
+
+.input-field {
+  @apply bg-background-card border border-gray-700 rounded-lg px-4 py-2 text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-fitness-primary focus:border-transparent transition-all duration-200;
+}
