@@ -5,8 +5,8 @@
  * Uses browser beforeunload event and can optionally block react-router navigation.
  */
 
-import { useEffect, useCallback, useState } from 'react';
-import { useBlocker } from 'react-router-dom';
+import { useEffect, useCallback, useState, useMemo } from 'react';
+import { useBlocker, type BlockerFunction } from 'react-router-dom';
 
 interface UseUnsavedChangesOptions {
   /** Message to show when user tries to navigate away */
@@ -28,18 +28,22 @@ export function useUnsavedChanges(
 ): { setHasChanges: (value: boolean) => void } {
   const [localHasChanges, setLocalHasChanges] = useState(false);
   
-  // Parse options
-  const options: UseUnsavedChangesOptions = typeof messageOrOptions === 'string'
-    ? { message: messageOrOptions }
-    : messageOrOptions || {};
+  // Parse options - memoize to prevent unnecessary re-renders
+  const options: UseUnsavedChangesOptions = useMemo(() => 
+    typeof messageOrOptions === 'string'
+      ? { message: messageOrOptions }
+      : messageOrOptions || {},
+    [messageOrOptions]
+  );
   
-  const {
-    message = 'You have unsaved changes. Are you sure you want to leave?',
-    blockRouterNavigation = true,
-  } = options;
+  const message = options.message || 'You have unsaved changes. Are you sure you want to leave?';
+  const blockRouterNavigation = options.blockRouterNavigation !== false;
   
   // Combine external and local state
   const isDirty = hasChanges || localHasChanges;
+  
+  // Calculate whether to block - must be a stable value for useBlocker
+  const shouldBlock = blockRouterNavigation && isDirty;
   
   // Handle browser navigation (refresh, close tab, external links)
   useEffect(() => {
@@ -58,13 +62,17 @@ export function useUnsavedChanges(
     };
   }, [isDirty, message]);
   
-  // Block react-router navigation
-  const blocker = useBlocker(
-    blockRouterNavigation && isDirty
-      ? ({ currentLocation, nextLocation }) =>
-          currentLocation.pathname !== nextLocation.pathname
-      : false
+  // Block react-router navigation - useBlocker must always be called (React hooks rules)
+  // Pass a stable callback or false to prevent blocking
+  const blockerFn = useCallback<BlockerFunction>(
+    ({ currentLocation, nextLocation }) => {
+      if (!shouldBlock) return false;
+      return currentLocation.pathname !== nextLocation.pathname;
+    },
+    [shouldBlock]
   );
+  
+  const blocker = useBlocker(blockerFn);
   
   // Show confirmation dialog when router navigation is blocked
   useEffect(() => {

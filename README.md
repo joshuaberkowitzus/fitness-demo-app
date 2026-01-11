@@ -111,6 +111,135 @@ docker build -t fitness-tracker-api .
 docker run -p 8000:8000 --env-file .env fitness-tracker-api
 ```
 
+## Google Fit Integration Setup
+
+To enable Google Fit integration for health metrics (heart rate, calories, steps), follow these steps:
+
+### 1. Enable Required APIs
+
+```bash
+gcloud services enable fitness.googleapis.com secretmanager.googleapis.com --project=YOUR_PROJECT_ID
+```
+
+### 2. Create OAuth Consent Screen
+
+1. Go to [OAuth Consent Screen](https://console.cloud.google.com/apis/credentials/consent)
+2. Select **External** user type
+3. Fill in the required fields:
+   - App name: "Fitness Tracker"
+   - User support email: Your email
+   - Developer contact: Your email
+4. Add the following scopes:
+   - `https://www.googleapis.com/auth/fitness.heart_rate.read`
+   - `https://www.googleapis.com/auth/fitness.activity.read`
+   - `https://www.googleapis.com/auth/fitness.body.read`
+5. Add your email as a **test user** (required while app is in testing mode)
+
+### 3. Create OAuth Client ID
+
+1. Go to [Credentials](https://console.cloud.google.com/apis/credentials)
+2. Click **+ CREATE CREDENTIALS** → **OAuth client ID**
+3. Select **Web application**
+4. Name: "Fitness Tracker Web"
+5. Add **Authorized JavaScript origins**:
+   - `https://your-frontend-url` (e.g., `https://fitness-demo-8be1a.web.app`)
+6. Add **Authorized redirect URIs**:
+   - `https://your-frontend-url/settings` (e.g., `https://fitness-demo-8be1a.web.app/settings`)
+7. Click **Create** and save the **Client ID** and **Client Secret**
+
+### 4. Store Credentials in Secret Manager
+
+```bash
+# Store OAuth credentials
+echo -n "YOUR_CLIENT_ID" | gcloud secrets create google-client-id --data-file=- --project=YOUR_PROJECT_ID
+echo -n "YOUR_CLIENT_SECRET" | gcloud secrets create google-client-secret --data-file=- --project=YOUR_PROJECT_ID
+
+# Generate and store encryption key for token storage
+# PowerShell:
+$bytes = New-Object byte[] 32; (New-Object Security.Cryptography.RNGCryptoServiceProvider).GetBytes($bytes); $key = [Convert]::ToBase64String($bytes); $key | gcloud secrets create google-fit-encryption-key --data-file=- --project=YOUR_PROJECT_ID
+
+# Bash/Linux:
+openssl rand -base64 32 | gcloud secrets create google-fit-encryption-key --data-file=- --project=YOUR_PROJECT_ID
+```
+
+### 5. Grant Cloud Run Access to Secrets
+
+```bash
+# Get your project number
+PROJECT_NUMBER=$(gcloud projects describe YOUR_PROJECT_ID --format="value(projectNumber)")
+
+# Grant access to each secret
+gcloud secrets add-iam-policy-binding google-client-id \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor" \
+  --project=YOUR_PROJECT_ID
+
+gcloud secrets add-iam-policy-binding google-client-secret \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor" \
+  --project=YOUR_PROJECT_ID
+
+gcloud secrets add-iam-policy-binding google-fit-encryption-key \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor" \
+  --project=YOUR_PROJECT_ID
+```
+
+### 6. Deploy with Secrets
+
+The `cloudbuild.yaml` is already configured to use these secrets. Deploy with:
+
+```bash
+cd backend
+gcloud builds submit --config=cloudbuild.yaml --project=YOUR_PROJECT_ID
+```
+
+Or manually include secrets in your deploy command:
+
+```bash
+gcloud run deploy fitness-tracker-api \
+  --source . \
+  --region us-central1 \
+  --set-secrets "GOOGLE_CLIENT_ID=google-client-id:latest,GOOGLE_CLIENT_SECRET=google-client-secret:latest,GOOGLE_FIT_ENCRYPTION_KEY=google-fit-encryption-key:latest"
+```
+
+## Deployment
+
+### Backend (Cloud Run)
+
+Deploy the backend using Cloud Build (recommended for production):
+
+```bash
+cd backend
+gcloud builds submit --config=cloudbuild.yaml --project=YOUR_PROJECT_ID
+```
+
+Or deploy directly from source:
+
+```bash
+cd backend
+gcloud run deploy fitness-tracker-api \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --port 8000 \
+  --memory 512Mi \
+  --timeout 60s \
+  --cpu-boost \
+  --set-env-vars "FIREBASE_PROJECT_ID=your-project-id,CORS_ORIGINS_STR=https://your-frontend-url,DEBUG=false"
+```
+
+### Frontend (Firebase Hosting)
+
+Build and deploy the frontend to Firebase Hosting:
+
+```bash
+cd frontend
+npm run build
+cd ../firebase
+firebase deploy --only hosting
+```
+
 ## API Endpoints
 
 | Method | Endpoint | Description |

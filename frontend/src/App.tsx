@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom';
 import './index.css';
 
 // Context
@@ -35,42 +35,55 @@ const queryClient = new QueryClient({
   },
 });
 
-function App() {
+// Root layout component that provides context and layout
+function RootLayout() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <ToastProvider>
-            <BrowserRouter>
-              <OfflineIndicator />
-              <div className="min-h-screen bg-background-dark pt-0">
-                <Routes>
-              {/* Public routes */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              
-              {/* Protected routes */}
-              <Route path="/" element={<ProtectedRoute><Navigate to="/today" replace /></ProtectedRoute>} />
-              <Route path="/today" element={<ProtectedRoute><Today /></ProtectedRoute>} />
-              <Route path="/plan" element={<ProtectedRoute><Plan /></ProtectedRoute>} />
-              <Route path="/plan/:dayId" element={<ProtectedRoute><EditWorkoutDay /></ProtectedRoute>} />
-              <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
-              <Route path="/history/:sessionId" element={<ProtectedRoute><SessionDetail /></ProtectedRoute>} />
-              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/warmup" element={<ProtectedRoute><WarmupRoutine /></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-              
-              {/* 404 */}
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-          </div>
-        </BrowserRouter>
-      </ToastProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-</ErrorBoundary>
+            <OfflineIndicator />
+            <div className="min-h-screen bg-background-dark pt-0">
+              <Outlet />
+            </div>
+          </ToastProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
+}
+
+// Create data router with routes configuration
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <RootLayout />,
+    errorElement: <NotFoundPage />,
+    children: [
+      // Public routes
+      { path: 'login', element: <Login /> },
+      { path: 'register', element: <Register /> },
+      { path: 'forgot-password', element: <ForgotPassword /> },
+      
+      // Protected routes
+      { index: true, element: <ProtectedRoute><Navigate to="/today" replace /></ProtectedRoute> },
+      { path: 'today', element: <ProtectedRoute><Today /></ProtectedRoute> },
+      { path: 'plan', element: <ProtectedRoute><Plan /></ProtectedRoute> },
+      { path: 'plan/:dayId', element: <ProtectedRoute><EditWorkoutDay /></ProtectedRoute> },
+      { path: 'history', element: <ProtectedRoute><History /></ProtectedRoute> },
+      { path: 'history/:sessionId', element: <ProtectedRoute><SessionDetail /></ProtectedRoute> },
+      { path: 'dashboard', element: <ProtectedRoute><Dashboard /></ProtectedRoute> },
+      { path: 'warmup', element: <ProtectedRoute><WarmupRoutine /></ProtectedRoute> },
+      { path: 'settings', element: <ProtectedRoute><Settings /></ProtectedRoute> },
+      
+      // 404
+      { path: '*', element: <NotFoundPage /> },
+    ],
+  },
+]);
+
+function App() {
+  return <RouterProvider router={router} />;
 }
 
 function NotFoundPage() {

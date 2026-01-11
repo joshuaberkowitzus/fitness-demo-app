@@ -1,7 +1,9 @@
 """Environment configuration for the Fitness Tracker API."""
 
 from functools import lru_cache
+from typing import Any
 
+from pydantic import computed_field
 from pydantic_settings import BaseSettings
 
 
@@ -19,11 +21,17 @@ class Settings(BaseSettings):
 
     # API Configuration
     api_prefix: str = "/api/v1"
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+    cors_origins_str: str = "http://localhost:5173,http://localhost:3000"
     debug: bool = False
 
     # Encryption key for Google Fit tokens (generate with: openssl rand -hex 32)
     encryption_key: str = ""
+
+    @computed_field
+    @property
+    def cors_origins(self) -> list[str]:
+        """Parse CORS origins from comma-separated string."""
+        return [origin.strip() for origin in self.cors_origins_str.split(",") if origin.strip()]
 
     model_config = {
         "env_file": ".env",

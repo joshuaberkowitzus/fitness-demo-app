@@ -3,6 +3,38 @@
 Based on workoutplan-guide.md - the structured workout program for knee preservation.
 """
 
+from datetime import datetime
+from typing import Optional
+import uuid
+
+
+async def create_default_workout_plan(uid: str) -> str:
+    """Create the default workout plan for a new user.
+    
+    Args:
+        uid: The Firebase user UID
+        
+    Returns:
+        The ID of the created workout plan
+    """
+    from app.services.firebase import get_db
+    
+    db = get_db()
+    plan_data = get_default_workout_plan()
+    plan_id = str(uuid.uuid4())
+    
+    # Add metadata
+    plan_data['id'] = plan_id
+    plan_data['userId'] = uid
+    plan_data['createdAt'] = datetime.utcnow()
+    plan_data['updatedAt'] = datetime.utcnow()
+    plan_data['isDefault'] = True
+    
+    # Store in Firestore
+    db.collection('users').document(uid).collection('workoutPlans').document(plan_id).set(plan_data)
+    
+    return plan_id
+
 
 def get_default_workout_plan() -> dict:
     """Return the default knee-preservation workout plan data."""

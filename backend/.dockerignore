@@ -1,0 +1,38 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Tests (not needed in production image)
+tests/
+
+# Docker
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# Environment
+.env*
+!.env.example
+
+# Logs
+*.log
+
+# Documentation
+*.md
+docs/
