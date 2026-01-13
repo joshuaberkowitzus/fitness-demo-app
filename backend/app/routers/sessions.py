@@ -1,6 +1,7 @@
 """Workout session logging router."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 
 from app.models import BaseResponse, PaginatedResponse
 from app.models.session import (
@@ -48,7 +49,10 @@ async def get_current_session(service: SessionService = Depends(get_session_serv
     
     Returns null if no session is in progress.
     """
-    return await service.get_current_session()
+    session = await service.get_current_session()
+    if session:
+        return JSONResponse(content=session.model_dump(mode='json', by_alias=True))
+    return None
 
 
 @router.get("", response_model=PaginatedResponse[WorkoutSession])

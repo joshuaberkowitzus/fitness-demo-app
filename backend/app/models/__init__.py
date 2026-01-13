@@ -54,4 +54,5 @@ class FirestoreDocument(BaseModel):
         from_attributes=True,
         populate_by_name=True,
         extra="ignore",
+        by_alias=True,
     )

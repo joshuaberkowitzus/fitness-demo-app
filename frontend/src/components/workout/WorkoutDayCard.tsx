@@ -54,14 +54,14 @@ export function WorkoutDayCard({ day, dayName, isToday, onClick }: WorkoutDayCar
             {!day.isRestDay && (
               <span className="text-text-muted text-sm flex items-center gap-1">
                 <ListIcon className="w-4 h-4" />
-                {exerciseCount} {exerciseCount === 1 ? 'exercise' : 'exercises'}
+                {exerciseCount} 
               </span>
             )}
             
             {day.duration && (
               <span className="text-text-muted text-sm flex items-center gap-1">
                 <ClockIcon className="w-4 h-4" />
-                {day.duration} min
+                {day.duration}
               </span>
             )}
           </div>

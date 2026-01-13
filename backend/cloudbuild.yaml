@@ -22,8 +22,8 @@ steps:
       - '--cpu-boost'
       - '--set-env-vars'
       - 'FIREBASE_PROJECT_ID=$PROJECT_ID,CORS_ORIGINS_STR=https://fitness-demo-8be1a.web.app,DEBUG=false'
-      - '--set-secrets'
-      - 'GOOGLE_CLIENT_ID=google-client-id:latest,GOOGLE_CLIENT_SECRET=google-client-secret:latest,GOOGLE_FIT_ENCRYPTION_KEY=google-fit-encryption-key:latest'
+      # - '--set-secrets'
+      # - 'GOOGLE_CLIENT_ID=google-client-id:latest,GOOGLE_CLIENT_SECRET=google-client-secret:latest,GOOGLE_FIT_ENCRYPTION_KEY=google-fit-encryption-key:latest'
 
   # Cleanup: Delete container images from Artifact Registry to save storage
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'

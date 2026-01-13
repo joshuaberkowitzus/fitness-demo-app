@@ -259,6 +259,7 @@ class SessionService:
         
         return ExerciseCompletion(
             id=exercise_id,
+            exercise_id=exercise_id,
             exercise_name=exercise_name,
             completed_at=now,
             sets_completed=completion_data['setsCompleted'],
@@ -299,6 +300,7 @@ class SessionService:
             comp_data = comp_doc.to_dict()
             completions.append(ExerciseCompletion(
                 id=comp_doc.id,
+                exercise_id=comp_doc.id,
                 exercise_name=comp_data.get('exerciseName', ''),
                 completed_at=comp_data.get('completedAt'),
                 sets_completed=comp_data.get('setsCompleted'),

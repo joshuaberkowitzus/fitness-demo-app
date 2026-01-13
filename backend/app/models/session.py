@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models import FirestoreDocument
 
@@ -37,14 +37,15 @@ class ExerciseCompletionCreate(BaseModel):
 class ExerciseCompletion(FirestoreDocument):
     """Record of completing an exercise."""
     
-    exercise_name: str
-    completed_at: datetime
-    sets_completed: int | None = None
-    reps_completed: int | None = None
+    exercise_id: str = Field(..., alias="exerciseId", serialization_alias="exerciseId")
+    exercise_name: str = Field(..., serialization_alias="exerciseName")
+    completed_at: datetime = Field(..., serialization_alias="completedAt")
+    sets_completed: int | None = Field(None, serialization_alias="setsCompleted")
+    reps_completed: int | None = Field(None, serialization_alias="repsCompleted")
     weight: float | None = None
     notes: str | None = None
     skipped: bool = False
-    skip_reason: str | None = None
+    skip_reason: str | None = Field(None, serialization_alias="skipReason")
 
 
 # ============================================================================
@@ -57,35 +58,39 @@ SessionStatus = Literal['in_progress', 'completed', 'cancelled']
 class SessionCreate(BaseModel):
     """Model for starting a new session."""
     
-    workout_day_id: str = Field(..., min_length=1)
-    warmup_completed: bool = False
+    model_config = ConfigDict(populate_by_name=True)
+    
+    workout_day_id: str = Field(..., min_length=1, alias="workoutDayId")
+    warmup_completed: bool = Field(default=False, alias="warmupCompleted")
 
 
 class SessionUpdate(BaseModel):
     """Model for updating a session."""
     
+    model_config = ConfigDict(populate_by_name=True)
+    
     status: SessionStatus | None = None
     notes: str | None = None
-    warmup_completed: bool | None = None
+    warmup_completed: bool | None = Field(default=None, alias="warmupCompleted")
 
 
 class WorkoutSession(FirestoreDocument):
     """Workout session model."""
     
     date: str  # ISO date YYYY-MM-DD
-    workout_plan_id: str
-    workout_day_id: str
-    workout_day_name: str
-    started_at: datetime
-    completed_at: datetime | None = None
+    workout_plan_id: str = Field(..., serialization_alias="workoutPlanId")
+    workout_day_id: str = Field(..., serialization_alias="workoutDayId")
+    workout_day_name: str = Field(..., serialization_alias="workoutDayName")
+    started_at: datetime = Field(..., serialization_alias="startedAt")
+    completed_at: datetime | None = Field(None, serialization_alias="completedAt")
     status: SessionStatus = 'in_progress'
-    warmup_completed: bool = False
+    warmup_completed: bool = Field(False, serialization_alias="warmupCompleted")
     notes: str | None = None
-    health_metrics: HealthMetrics | None = None
-    synced_at: datetime | None = None
+    health_metrics: HealthMetrics | None = Field(None, serialization_alias="healthMetrics")
+    synced_at: datetime | None = Field(None, serialization_alias="syncedAt")
 
 
 class WorkoutSessionFull(WorkoutSession):
     """Session with exercise completions."""
     
-    exercise_completions: list[ExerciseCompletion] = []
+    exercise_completions: list[ExerciseCompletion] = Field([], serialization_alias="exerciseCompletions")
